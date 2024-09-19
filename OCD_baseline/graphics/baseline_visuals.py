@@ -24,8 +24,10 @@ from nilearn.input_data import NiftiMasker, NiftiLabelsMasker
 import numpy as np
 import os
 import pandas as pd
+import pathlib
 import pdb
 import pickle
+import pkgutil
 import pyvista as pv
 from pyvista import examples
 import scipy
@@ -39,101 +41,103 @@ from time import time, sleep
 import warnings
 
 # paths
-proj_dir = '/home/sebastin/working/lab_lucac/sebastiN/projects/OCDbaseline'
-code_dir = os.path.join(proj_dir, 'code')
-deriv_dir = os.path.join(proj_dir, 'data/derivatives')
-atlas_dir = os.path.join(proj_dir, 'utils')
-fs_dir = '/usr/local/freesurfer/'
+#proj_dir = '/home/sebastin/working/lab_lucac/sebastiN/projects/OCDbaseline'
+
+import OCD_baseline
+proj_dir = str(pathlib.Path(pkgutil.get_loader("OCD_baseline").get_filename()).parent)
+atlas_dir = os.path.join(proj_dir, "utils/atlases")
+
 
 # uncomment in case of using freesurfer surfaces
+#fs_dir = '/usr/local/freesurfer/'
 #coords, faces, info, stamp = nib.freesurfer.io.read_geometry(os.path.join(fs_dir, 'subjects', 'fsaverage4', 'surf', 'lh.white'), read_metadata=True, read_stamp=True)
 
 imgs_info = {
-                'base': {'path': os.path.join(proj_dir, 'utils', 'empty.nii.gz'),
+                'base': {'path': os.path.join(atlas_dir, 'empty.nii.gz'),
                                 'name': 'base',
                                 'cmap': 'binary',
                                 'clim': [0, 1.],
                                 'opacity': 1.,
                                 'nan_opacity': 1. },
-                'ventromed_probmap': {  'path': os.path.join(proj_dir, 'utils', 'ProbabilityMaps_CorticoStriatalConnectivity_RightStriatum', 'ProbMap_R_N3_ventromed.nii'),
+                'ventromed_probmap': {  'path': os.path.join(atlas_dir, 'ProbMap_R_N3_ventromed.nii'),
                                         'name':'ventromed_probmap',
                                         'cmap':'Reds',
                                         'clim': [50,70],
                                         'opacity': 0.5,
                                         'nan_opacity':0.},
-                'putamen_probmap': {  'path': os.path.join(proj_dir, 'utils', 'ProbabilityMaps_CorticoStriatalConnectivity_RightStriatum', 'ProbMap_R_N3_putamen.nii'),
+                'putamen_probmap': {  'path': os.path.join(atlas_dir, 'ProbMap_R_N3_putamen.nii'),
                                         'name':'putamen_probmap',
                                         'cmap':'Reds',
                                         'clim': [50,100],
                                         'opacity': 1,
                                         'nan_opacity':0.},
-                'tian_acc': {  'path': os.path.join(proj_dir, 'utils', 'hcp_masks', 'Acc_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr100SD_GM_23092022.nii.gz'), # 'Acc_pathway_mask_group_by_hemi_Ftest_grp111_10hcpThr10SD_Fr_20092022.nii.gz'), #'Acc_fcmap_fwhm6_HCP_REST1_avg.nii'), #'nac_mask_fcmap_avg.nii.gz'),
+                'tian_acc': {  'path': os.path.join(atlas_dir, 'Acc_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr100SD_GM_23092022.nii.gz'),
                                         'name':'tian_acc',
                                         'cmap':'Oranges',
                                         'clim': [0, 0.6],
                                         'opacity': 1.,
                                         'nan_opacity':0.},
-                'tian_putamen': {  'path': os.path.join(proj_dir, 'utils', 'hcp_masks', 'dPut_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr250SD_GM_23092022.nii.gz'),# 'dPut_fcmap_fwhm6_HCP_REST1_avg.nii'), #'putamen_mask_fcmap_avg.nii.gz'),
+                'tian_putamen': {  'path': os.path.join(atlas_dir, 'dPut_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr250SD_GM_23092022.nii.gz'),
                                         'name':'tian_putamen',
                                         'cmap':'Greens',
                                         'clim': [0, 0.6],
                                         'opacity': 1.,
                                         'nan_opacity':0.},
-                'dCaud_hcp_mask': {  'path': os.path.join(proj_dir, 'utils', 'hcp_masks', 'dCaud_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr275SD_GM_23092022.nii.gz'),# 'dPut_fcmap_fwhm6_HCP_REST1_avg.nii'), #'putamen_mask_fcmap_avg.nii.gz'),
+                'dCaud_hcp_mask': {  'path': os.path.join(atlas_dir, 'dCaud_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr275SD_GM_23092022.nii.gz'),
                                         'name':'dCaud_hcp_mask',
                                         'cmap':'Blues',
                                         'clim': [0.4, 0.6],
                                         'opacity': 1.,
                                         'nan_opacity':0.},
-                'vPut_hcp_mask': {  'path': os.path.join(proj_dir, 'utils', 'hcp_masks', 'vPut_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr225SD_GM_23092022.nii.gz'),# 'dPut_fcmap_fwhm6_HCP_REST1_avg.nii'), #'putamen_mask_fcmap_avg.nii.gz'),
+                'vPut_hcp_mask': {  'path': os.path.join(atlas_dir, 'vPut_pathway_mask_group_by_hemi_Ftest_grp111_100hcpThr225SD_GM_23092022.nii.gz'),
                                         'name':'vPut_hcp_mask',
                                         'cmap':'Purples',
                                         'clim': [0.4, 0.6],
                                         'opacity': 0.8,
                                         'nan_opacity':0.},
-                'acc_seed': {   'path': os.path.join(proj_dir, 'utils', 'Acc.nii.gz'),
+                'acc_seed': {   'path': os.path.join(atlas_dir, 'Acc.nii.gz'),
                                 'name': 'acc_seed',
                                 'cmap': 'Reds',
                                 'clim': [0,0.5],
                                 'opacity': 1. ,
                                 'nan_opacity':0},
-                'acc_pathway': {'path': os.path.join(proj_dir, 'utils', 'frontal_Acc_mapping.nii.gz'),
+                'acc_pathway': {'path': os.path.join(atlas_dir, 'frontal_Acc_mapping.nii.gz'),
                                 'name': 'acc_pathway',
                                 'cmap': 'Blues',
                                 'clim': [0, 1.5],
                                 'opacity': 0.5,
                                 'nan_opacity': 0. },
-                'dPut_pathway': {'path': os.path.join(proj_dir, 'utils', 'frontal_dPut_mapping.nii.gz'),
+                'dPut_pathway': {'path': os.path.join(atlas_dir, 'frontal_dPut_mapping.nii.gz'),
                                 'name': 'dPut_pathway',
                                 'cmap': 'Blues',
                                 'clim': [0, 1.5],
                                 'opacity': 0.5,
                                 'nan_opacity': 0. },
-                'Acc_con': {'path': os.path.join(proj_dir, 'postprocessing/SPM/outputs/Harrison2009Rep/smoothed_but_sphere_seed_based/detrend_gsr_filtered_scrubFD05/brainFWHM8mm/Acc/randomise', 'Acc_outputs_n5000_TFCE_OCD_minus_HC_13062022_tstat1.nii.gz'),
+                'Acc_con': {'path': os.path.join(atlas_dir, 'Acc_outputs_n5000_TFCE_OCD_minus_HC_13062022_tstat1.nii.gz'),
                                 'name': 'Acc_con',
                                 'cmap': 'Reds',
                                 'clim': [1., 2.],
                                 'opacity': 1,
                                 'nan_opacity': 0. },
-                'dPut_con': {'path': os.path.join(proj_dir, 'postprocessing/SPM/outputs/Harrison2009Rep/smoothed_but_sphere_seed_based/detrend_gsr_filtered_scrubFD05/brainFWHM8mm/dPut/randomise', 'dPut_outputs_n5000_TFCE_HC_minus_OCD_13062022_tstat1.nii.gz'),
+                'dPut_con': {'path': os.path.join(atlas_dir, 'dPut_outputs_n5000_TFCE_HC_minus_OCD_13062022_tstat1.nii.gz'),
                                 'name': 'dPut_con',
                                 'cmap': 'Blues',
                                 'clim': [1., 2.],
                                 'opacity': 1,
                                 'nan_opacity': 0. },
-                'Acc_hcp_con': {'path': os.path.join(proj_dir, 'postprocessing/SPM/outputs/Harrison2009Rep/smoothed_but_sphere_seed_based/detrend_gsr_filtered_scrubFD05/brainFWHM8mm/Acc/randomise', 'Acc_outputs_n5000_c35_group_by_hemi_Ftest_grp111_100hcpThr100SD_GM_22092022_tstat1.nii.gz'),
+                'Acc_hcp_con': {'path': os.path.join(atlas_dir, 'Acc_outputs_n5000_c35_group_by_hemi_Ftest_grp111_100hcpThr100SD_GM_22092022_tstat1.nii.gz'),
                                 'name': 'Acc_hcp_con',
                                 'cmap': 'RdBu',
                                 'clim': [-3, 3],
                                 'opacity': 1,
                                 'nan_opacity': 0. },
-                'dPut_hcp_con': {'path': os.path.join(proj_dir, 'postprocessing/SPM/outputs/Harrison2009Rep/smoothed_but_sphere_seed_based/detrend_gsr_filtered_scrubFD05/brainFWHM8mm/dPut/randomise', 'dPut_outputs_n5000_c30_group_by_hemi_Ftest_grp111_100hcpThr275SD_GM_22092022_tstat1.nii.gz'),
+                'dPut_hcp_con': {'path': os.path.join(atlas_dir, 'dPut_outputs_n5000_c30_group_by_hemi_Ftest_grp111_100hcpThr275SD_GM_22092022_tstat1.nii.gz'),
                                 'name': 'dPut_hcp_con',
                                 'cmap': 'RdBu',
                                 'clim': [-3, 3],
                                 'opacity': 1,
                                 'nan_opacity': 0. },
-                'dCaud_hcp_con': {'path': os.path.join(proj_dir, 'postprocessing/SPM/outputs/Harrison2009Rep/smoothed_but_sphere_seed_based/detrend_gsr_filtered_scrubFD05/brainFWHM8mm/dCaud/randomise', 'dCaud_outputs_n5000_c30_group_by_hemi_Ftest_grp111_100hcpThr275SD_GM_23092022_tstat1.nii.gz'),
+                'dCaud_hcp_con': {'path': os.path.join(atlas_dir, 'dCaud_outputs_n5000_c30_group_by_hemi_Ftest_grp111_100hcpThr275SD_GM_23092022_tstat1.nii.gz'),
                                 'name': 'dCaud_hcp_con',
                                 'cmap': 'RdBu',
                                 'clim': [-3, 3],
@@ -147,7 +151,8 @@ pv.start_xvfb()
 
 def get_brainnet_surf(surf_name):
     """ Import brain net viewer surface into pyvista polyData type """
-    brainnet_path = '/home/sebastin/Downloads/BrainNetViewer/BrainNet-Viewer/Data/SurfTemplate/'
+    #brainnet_path = '/home/sebastin/Downloads/BrainNetViewer/BrainNet-Viewer/Data/SurfTemplate/'
+    brainnet_path = os.path.join(proj_dir, 'utils', 'SurfTemplate')
     fname = os.path.join(brainnet_path, surf_name+'.nv')
     with open(fname, 'r') as f:
         n_vertices = int(f.readline())
@@ -244,6 +249,7 @@ def plot_surface(surfs, names=imgs_info.keys(), args=None):
     if args.save_figs:
         fname = '_'.join(names)+'_'+datetime.now().strftime('%d%m%Y')+'.pdf'
         #pl.save_graphic(os.path.join(proj_dir, 'img', fname), painter=True, raster=True)
+        os.makedirs(os.path.join(proj_dir, 'img'), exist_ok=True)
         plt.savefig(os.path.join(proj_dir, 'img','plot_'+fname))
 
 
@@ -263,7 +269,7 @@ if __name__=='__main__':
     parser.add_argument('--smoothed_surface', default=False, action='store_true', help='use smooth cortical mesh')
     args = parser.parse_args()
 
-    names=['base', 'Acc_con', 'dPut_con'] # <-- must be decalred in imgs_info on top of the file
+    names=['base', 'Acc_con', 'dPut_con'] # <-- must be declared in imgs_info on top of the file
 
     if args.plot_surface:
         # get template ICBM surfaces (left, right and both hemispheres meshes)
